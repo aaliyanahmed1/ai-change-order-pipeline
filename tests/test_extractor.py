@@ -1,10 +1,13 @@
 import pytest
 from unittest.mock import patch, MagicMock
+import os
 from extractor import ChangeOrderExtractor
 
+@patch('extractor.os.path.exists')
 @patch('instructor.from_openai')
 @patch('fitz.open')
-def test_empty_pdf_fallback(mock_fitz, mock_instructor):
+def test_empty_pdf_fallback(mock_fitz, mock_instructor, mock_exists):
+    mock_exists.return_value = True
     mock_doc = MagicMock()
     mock_page = MagicMock()
     mock_page.get_text.return_value = "   " # empty text
@@ -16,7 +19,8 @@ def test_empty_pdf_fallback(mock_fitz, mock_instructor):
     ex = ChangeOrderExtractor(api_key="fake")
     
     mock_client = MagicMock()
-    mock_co = MagicMock()
+    from tests.test_schema import make_co
+    mock_co = make_co()
     mock_client.chat.completions.create.return_value = mock_co
     ex.client = mock_client
     
@@ -33,6 +37,7 @@ def test_txt_handling(tmp_path):
     
     with patch('extractor.compute_confidence') as mock_conf:
         mock_res = MagicMock()
+        mock_res.review_reasons = []
         mock_conf.return_value = mock_res
         ex.extract_from_file(str(p))
         mock_conf.assert_called_once()
