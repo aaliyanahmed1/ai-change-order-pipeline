@@ -1,0 +1,22 @@
+CHANGE ORDER
+Project: Downtown Office Build
+CO Number: CO-001
+Date: 2026-05-10
+Owner: MegaCorp Inc
+Contractor: BuildRight Construction
+Vendor: ABC Plumbing
+Reason: Add extra sinks in the breakroom
+Original Sum: 500000.00
+Revised Sum: 504500.00
+Currency: USD
+Schedule Impact: 2 days
+
+Line Items:
+Description | Qty | Unit Price | Total
+Sink Fixtures | 5 | 500.00 | 2500.00
+Labor | 20 | 100.00 | 2000.00
+
+Total Amount: 4500.00
+
+Signatures:
+John Doe, Project Manager, 2026-05-11, [SIGNED]

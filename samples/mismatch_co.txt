@@ -1,0 +1,22 @@
+
+CHANGE ORDER #003
+Project: Westside Mall
+Date: 2026-07-01
+Owner: MallCorp
+Contractor: BuildRight
+Vendor: Def HVAC
+Reason: Upgrade AC units
+Original Sum: 200000.00
+Revised Sum: 215000.00
+Currency: USD
+Schedule Impact: 5 days
+
+Qty | Desc | Unit | Total
+2 | AC Unit | 5000.00 | 10000.00
+10 | Ductwork | 200.00 | 2000.00
+40 | Labor | 100.00 | 4000.00
+
+Total Amount: 15000.00
+
+Signatures:
+Charlie Brown, Vendor, 2026-07-01, [SIGNED]

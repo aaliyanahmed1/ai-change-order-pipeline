@@ -1,0 +1,23 @@
+
+*** CHANGE ORDER REQUEST ***
+Date: 2026-06-01 | CO#: 002 | Proj: Eastside Retail
+Owner: RetailGroup | Contr: BuildRight | Vendor: XYZ Electric
+Currency: USD
+
+Original: 100000.00
+Revised: 102000.00
+
+We need to add some extra lighting.
+
+Schedule impact: 0 days
+
+Items
+- Lights      10   x  100.00  = 1000.00
+- Wiring      1    x  500.00  = 500.00
+- Labor       5    x  100.00  = 500.00
+
+Total: 2000.00
+
+Signatures:
+Alice Smith, Foreman, 2026-06-02, [SIGNED]
+Bob Jones, Owner Rep, 2026-06-02, [UNSIGNED]
