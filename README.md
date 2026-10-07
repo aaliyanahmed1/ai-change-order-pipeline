@@ -2,8 +2,6 @@
 
 This repository contains a production-grade pipeline for extracting structured fields from messy, unstructured Change Order documents (PDFs and text) into validated JSON.
 
-This project was built as a technical assessment for the AI Engineer role at Sledge.
-
 ## Approach & Architecture
 
 Extracting structured data from highly variable construction documents requires moving beyond simple Regex or template-based OCR. Our pipeline uses a combination of deterministic text extraction and an LLM-driven schema engine.
