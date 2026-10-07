@@ -10,6 +10,26 @@ A working prototype for extracting structured fields from messy Change Order doc
 - **Flags** extractions for human review if confidence falls below a threshold or if math/evidence checks fail.
 - **Vision Fallback**: Automatically renders scanned PDFs with no text layer into images to use vision models.
 
+## Architecture
+```mermaid
+graph TD
+    A[Input PDF/TXT] --> B{Has Text Layer?}
+    B -- Yes --> C[Extract Text]
+    B -- No --> D[Vision Render]
+    C --> E[LLM via Instructor]
+    D --> E
+    E --> F[Pydantic Validation & Math Check]
+    F -->|Validation Error| E
+    F --> G[Confidence Pipeline]
+    G --> H[Fuzzy Match Evidence]
+    G --> I[Check Critical Fields]
+    H --> J{Score < Threshold?}
+    I --> J
+    J -- Yes --> K[Needs Review]
+    J -- No --> L[Valid JSON Output]
+    K --> L
+```
+
 ## Quickstart
 
 1. Install dependencies:
@@ -23,9 +43,9 @@ pip install -r requirements.txt
 export OPENAI_API_KEY="sk-..."
 ```
 
-3. Run extraction on a document:
+3. Run extraction on a document and visualize the evidence:
 ```bash
-python main.py samples/clean_co.pdf --out output.json --threshold 0.85
+python main.py samples/clean_co.pdf --out output.json --visualize output_highlighted.pdf
 ```
 
 ## Running Tests & Evaluation

@@ -11,6 +11,7 @@ def main():
     parser.add_argument("file_path", help="Path to the PDF or text file to process")
     parser.add_argument("--out", help="Optional output JSON file path", default=None)
     parser.add_argument("--threshold", type=float, default=0.8, help="Confidence threshold below which review is needed (default: 0.8)")
+    parser.add_argument("--visualize", help="Optional output PDF path with highlighted evidence", default=None)
     parser.add_argument("--model", type=str, default="gpt-4o", help="OpenAI model to use (default: gpt-4o)")
     args = parser.parse_args()
 
@@ -49,6 +50,37 @@ def main():
             for reason in result.review_reasons:
                 logger.warning(f" - {reason}")
                 
+        if args.visualize and args.file_path.endswith('.pdf'):
+            try:
+                import fitz
+                doc = fitz.open(args.file_path)
+                
+                # Recursively extract evidence strings
+                evidence_strings = []
+                def collect_evidence(obj):
+                    if isinstance(obj, dict):
+                        if "evidence" in obj and obj["evidence"]:
+                            evidence_strings.append(obj["evidence"])
+                        for v in obj.values():
+                            collect_evidence(v)
+                    elif isinstance(obj, list):
+                        for item in obj:
+                            collect_evidence(item)
+                            
+                collect_evidence(result.change_order.model_dump())
+                
+                for page in doc:
+                    for ev in evidence_strings:
+                        text_instances = page.search_for(ev)
+                        for inst in text_instances:
+                            highlight = page.add_highlight_annot(inst)
+                            highlight.update()
+                            
+                doc.save(args.visualize)
+                logger.info(f"🎨 Saved visual output with evidence highlights to {args.visualize}")
+            except Exception as e:
+                logger.error(f"Failed to create visualization: {e}")
+
     except Exception as e:
         logger.error(f"❌ Pipeline failed: {e}")
         sys.exit(1)
