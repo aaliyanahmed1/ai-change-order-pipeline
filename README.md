@@ -1,53 +1,50 @@
-# Construction Change Order Extraction Pipeline
+# Change Order Extraction Pipeline
 
-This repository contains a production-grade pipeline for extracting structured fields from messy, unstructured Change Order documents (PDFs and text) into validated JSON.
+A working prototype for extracting structured fields from messy Change Order documents (PDFs and text) into validated JSON, built with Python, PyMuPDF, Pydantic, and Instructor + OpenAI.
 
-## Approach & Architecture
+## What it Does
+- **Ingests** PDFs and raw text.
+- **Extracts** structured data using LLM reasoning (GPT-4o).
+- **Validates** mathematically using Pydantic (e.g. sums of line items must match the total).
+- **Scores** confidence field-by-field, combining LLM self-reflection with deterministic "evidence grounding" (fuzzy matching the text snippet back to the source document).
+- **Flags** extractions for human review if confidence falls below a threshold or if math/evidence checks fail.
+- **Vision Fallback**: Automatically renders scanned PDFs with no text layer into images to use vision models.
 
-Extracting structured data from highly variable construction documents requires moving beyond simple Regex or template-based OCR. Our pipeline uses a combination of deterministic text extraction and an LLM-driven schema engine.
+## Quickstart
 
-### Core Stack
-*   **PyMuPDF (`fitz`)**: Used for fast, deterministic text layer extraction from born-digital PDFs.
-*   **Pydantic**: Acts as the "contract" for our data. We define the exact schema we expect (`ChangeOrder`, `LineItem`, `ConfidenceScore`).
-*   **Instructor**: Wraps the OpenAI API to enforce strict JSON schema compliance. If the LLM hallucinates invalid data (e.g., outputs a string instead of a float for `total_amount`), Instructor automatically catches the validation error, injects it back into the prompt, and retries the LLM call.
-*   **OpenAI (`gpt-4o`)**: The reasoning engine that understands spatial context, tabular formats, and construction terminology to accurately map messy text to the strict schema.
-
-### How Confidence Scores Work
-We rely on **LLM Self-Reflection**. The schema includes a `ConfidenceScore` sub-model. The LLM is instructed to score its own extraction based on the legibility of the text, missing fields, or broken table layouts, and provide a textual `reasoning`. This allows downstream systems to route low-confidence extractions (e.g., < 80%) to a human-in-the-loop for manual review.
-
----
-
-## Failure Modes & Edge Cases
-
-When deploying this in a real construction environment, we must account for several failure modes:
-
-1.  **Scanned/Image-based PDFs:**
-    *   *Failure:* `PyMuPDF` extracts the text layer. If a PDF is a scanned image, the text layer is empty.
-    *   *Solution:* We would need to integrate a Vision model (like `gpt-4o-vision` or AWS Textract) or an OCR engine (like Tesseract or DocTR) as a fallback layer prior to LLM processing.
-2.  **Complex Nested Tables:**
-    *   *Failure:* Standard PDF text extraction flattens tables. If a change order has highly complex nested tables or multi-line item descriptions without borders, the reading order might jumble numbers.
-    *   *Solution:* Implementing a layout analysis tool (e.g., LlamaParse or Microsoft Document Intelligence) that parses bounding boxes and reconstructs markdown tables before feeding it to the LLM.
-3.  **Token Limits & Context Window Exhaustion:**
-    *   *Failure:* A 50-page change order with extensive architectural drawings attached might exceed token limits or cause the LLM to "forget" instructions in the middle (the "Lost in the Middle" phenomenon).
-    *   *Solution:* Implement document chunking or use a routing agent that first identifies which pages actually contain the cost/scope data and drops the rest before extraction.
-4.  **Math Hallucinations:**
-    *   *Failure:* The LLM might extract line items perfectly but misread the `total_amount`.
-    *   *Solution:* Add a `@model_validator` in the Pydantic schema that mathematically sums all `line_item.total_price` values and throws a validation error if it doesn't match the extracted `grand_total`. Instructor would then force the LLM to fix it.
-
-## Setup & Usage
-
-1. Create a virtual environment and install dependencies:
+1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Export your OpenAI API Key:
+2. Set your OpenAI API key:
 ```bash
-export OPENAI_API_KEY="sk-your-api-key"
-# On Windows: set OPENAI_API_KEY="sk-your-api-key"
+# In .env file, or via shell:
+export OPENAI_API_KEY="sk-..."
 ```
 
-3. Run the pipeline on a document:
+3. Run extraction on a document:
 ```bash
-python main.py path/to/your/change_order.pdf
+python main.py samples/clean_co.pdf --out output.json --threshold 0.85
 ```
+
+## Running Tests & Evaluation
+
+To run the unit tests (no API key required):
+```bash
+pytest
+```
+
+To run the full evaluation suite against the synthetic samples (API key required):
+```bash
+python scripts/evaluate.py
+```
+This script runs the pipeline on `clean_co.pdf`, `messy_co.pdf`, and `mismatch_co.pdf`, compares the results against the expected JSON, and prints an accuracy table.
+
+## Project Structure
+- `schema.py`: Strict Pydantic models with `ExtractedField` for value, confidence, and evidence.
+- `extractor.py`: LLM orchestration with PyMuPDF and Instructor.
+- `confidence.py`: The deterministic and heuristic scoring pipeline.
+- `main.py`: CLI.
+- `tests/`: Pytest suite covering math validation, evidence grounding, and vision fallback.
+- `scripts/`: Sample generation and evaluation scripts.
