@@ -19,7 +19,7 @@ def test_empty_pdf_fallback(mock_fitz, mock_instructor, mock_exists):
     ex = ChangeOrderExtractor(api_key="fake")
     
     mock_client = MagicMock()
-    from tests.test_schema import make_co
+    from test_schema import make_co
     mock_co = make_co()
     mock_client.chat.completions.create.return_value = mock_co
     ex.client = mock_client
