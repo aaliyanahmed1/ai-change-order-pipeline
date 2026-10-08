@@ -1,34 +1,31 @@
 # Writeup
 
-## 1. Approach
-This prototype relies on the principle of "Schema as a Contract". Rather than writing complex Regex or layout heuristics, we define the exact output shape in `schema.py` using Pydantic (e.g., using strict `Decimal` for currency and `datetime.date` for dates). 
+## 1. What This Tool Does
+This tool takes messy construction "Change Order" PDFs and uses AI to turn them into clean, structured data (JSON format). 
 
-We wrap the OpenAI API using the `instructor` library. Instructor ensures that the LLM output conforms perfectly to our Pydantic schema. Crucially, I added `@model_validator` methods to the schema that mathematically verify the extraction (e.g., ensuring `sum(line_item.total) == grand_total`). If the math is wrong, Pydantic throws a validation error, which Instructor intercepts and feeds back to the LLM for a retry. 
+Instead of writing complicated rules to find data, we use a simple approach:
+1. We define exactly what the data should look like using a "Schema" (like a blueprint for data).
+2. We ask GPT-4o to read the PDF and fill out that blueprint.
+3. Our code then does math checks. For example, it checks if all the line items actually add up to the total amount. If the AI made a math mistake, our code tells the AI to try again.
+4. If a PDF is a scanned image, the tool is smart enough to take screenshots of the pages and use the AI's vision capabilities to read it.
 
-For document ingestion, `PyMuPDF` extracts the raw text layer. If a PDF is detected to have an empty or nearly-empty text layer (like a scanned image), the pipeline automatically renders the pages as images and falls back to a vision-based extraction approach.
+## 2. How the "Confidence Score" Works
+We can't just ask the AI "how confident are you?" because AI often lies and acts overly confident when it's wrong.
 
-## 2. How Confidence is Computed
-Relying purely on an LLM to self-report its confidence is insufficient because LLMs are highly prone to confidently hallucinating data. 
+Instead, we built a smart scoring system:
+1. When the AI pulls a number or name, we force it to also quote the exact text it saw in the PDF as "evidence".
+2. Our code then searches the original PDF for that exact quote. 
+3. If our code can't find that quote in the PDF, it means the AI made it up! We immediately drop the confidence score and flag the document for a human to review.
+4. We also lower the score if important fields (like the Total Amount or Date) are missing entirely.
 
-To solve this, confidence is computed through a layered scoring pipeline:
-1. **Self-Report**: The LLM outputs its initial `confidence` and the verbatim string `evidence` it used from the text.
-2. **Evidence Grounding**: The pipeline takes that `evidence` and performs a deterministic fuzzy match against the source document. If the LLM fabricated the evidence (fuzzy match < 85%), we heavily penalize the field's confidence, capping it at `0.3`, and log a review reason.
-3. **Deterministic Checks**: We deduct points for missing critical fields (like `total_amount` or `date`).
-4. **Final Threshold**: The overall score is averaged across fields. If it drops below `0.8` (configurable), `needs_review` is set to `True`.
+## 3. Where It Fails (And How We Fix It)
+* **Scanned Images:** If the PDF has no text layer, we automatically switch to reading it as an image.
+* **Bad Math:** If the AI reads the table wrong and the numbers don't add up, our code catches it before it becomes a problem and forces a retry.
+* **Hallucinations (AI making things up):** Caught by our evidence checker.
+* **Very Long Documents:** If the document is hundreds of pages long, we have to cut it off so it doesn't break the AI, which means we might miss data at the end. We flag these long documents for human review.
 
-## 3. Failure Modes
-Based on the sample evaluations and architecture, here are the observed and handled failure modes:
-* **Scanned Documents**: Handled via Vision fallback. If text is <50 chars/page, it converts the PDF to images for `gpt-4o`.
-* **Math Mismatches**: Handled via Pydantic validators. If a document's table is confusing and the LLM extracts mismatched totals, the script retries automatically. If it still fails, it throws an error and requires review.
-* **LLM Hallucinations**: Handled via Evidence Grounding. If the LLM makes up a value, it won't find the evidence in the source text, triggering the low-confidence penalty.
-* **Extremely Long Documents**: Handled via truncation. If the text exceeds 50,000 characters, it truncates the document and forces a `needs_review` flag to ensure data wasn't missed.
-
-**Not Yet Handled:**
-* Hand-written annotations overlapping with printed text (Vision handles some of this, but it can be brittle).
-* Documents exceeding the context window where truncating removes the actual change order table.
-
-## 4. What I'd Do Next
-1. **Layout-Aware Parsing**: Replace PyMuPDF text extraction with a layout-aware parser (like DocTR or LlamaParse) that reconstructs tables as Markdown before hitting the LLM. This significantly reduces tabular hallucinations.
-2. **Chunking / Page Routing**: Instead of blind truncation, implement a fast classifier that finds the exact pages containing cost/scope tables and only sends those pages to the heavy extraction model.
-3. **Calibration against a Labeled Set**: Build a labeled dataset of 500+ change orders to calibrate the fuzzy match thresholds and confidence penalties using a grid search, ensuring we hit optimal precision/recall.
-4. **Human-Review UI**: Build a simple front-end where `needs_review=True` JSONs are presented side-by-side with the PDF, highlighting the bounding boxes of the `evidence` snippets for rapid human approval.
+## 4. Next Steps
+If I had more time, here is what I would add next:
+1. **Highlighting UI:** A web dashboard that puts the PDF side-by-side with the extracted data, highlighting exactly where the AI found the numbers so a human can approve it in seconds.
+2. **Table Parsing Tool:** Use a specialized tool to extract tables perfectly before giving them to the AI, which stops the AI from getting confused by weirdly shaped tables.
+3. **Smart Page Finder:** Instead of feeding the whole PDF to the AI, build a quick filter that only feeds the pages containing cost numbers to the AI.
